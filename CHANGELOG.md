@@ -4,4 +4,4 @@
 
 ## [Unreleased]
 ### Added
-- 添加工具logo图片
+- 添加windy工具logo图片
