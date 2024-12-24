@@ -1,4 +1,4 @@
-package com.zj.gyl.windy.services
+package com.zj.gyl.windy.services.entity
 
 class PageModel<T>(var total: Int, var data: ArrayList<T>) {
 

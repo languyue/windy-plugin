@@ -9,11 +9,12 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.zj.gyl.windy.toolWindow.WindyToolWindowFactory" id="Windy"/>
+        <toolWindow factoryClass="com.zj.gyl.windy.toolWindow.WindyToolWindowFactory" id="Windy"
+                    icon="/icons/white-logo.png"/>
         <notificationGroup id="Windy Notification Group" displayType="BALLOON" isLogByDefault="false"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="com.zj.gyl.windy.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+        <listener class="com.zj.gyl.windy.listeners.WindyListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
     </applicationListeners>
 </idea-plugin>

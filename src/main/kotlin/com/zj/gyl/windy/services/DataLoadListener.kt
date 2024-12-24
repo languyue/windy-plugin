@@ -1,5 +1,7 @@
 package com.zj.gyl.windy.services
 
-fun interface DataLoadListener {
+interface DataLoadListener {
     fun load()
+
+    fun expire()
 }
