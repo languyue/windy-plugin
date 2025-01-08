@@ -61,13 +61,14 @@ class LoginUIWindow(val toolWindow: ToolWindow) {
 
         // Confirm Button Action
         confirmButton.addActionListener {
-            val server = PropertiesComponent.getInstance().getValue("windy.server")
+            val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
             if (Objects.isNull(server)) {
                 JOptionPane.showMessageDialog(mainPanel, "服务地址未设置，请点击设置按钮配置")
                 return@addActionListener
             }
 
             if (authenticateUser(nameField.text, String(passwordField.password))) {
+                PropertiesComponent.getInstance().setValue(Constants.WINDY_USER_KEY, nameField.text)
                 switchToBusinessPage()
             } else {
                 JOptionPane.showMessageDialog(mainPanel, "登录失败，请重试")
@@ -96,6 +97,10 @@ class LoginUIWindow(val toolWindow: ToolWindow) {
 
         formGbc.gridx = 1
         val nameField = JTextField(20)
+        val userName = PropertiesComponent.getInstance().getValue(Constants.WINDY_USER_KEY)
+        if (userName != null && userName != ""){
+            nameField.text = userName
+        }
         formPanel.add(nameField, formGbc)
 
         formGbc.gridx = 0
@@ -198,7 +203,7 @@ class LoginUIWindow(val toolWindow: ToolWindow) {
         contentPanel.add(JLabel("服务地址"), contentGbc)
 
         contentGbc.gridx = 1
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val addressField = JTextField(30)
         addressField.text = server
         contentPanel.add(addressField, contentGbc)
@@ -223,7 +228,7 @@ class LoginUIWindow(val toolWindow: ToolWindow) {
             if (server.endsWith("/")) {
                 server = server.substring(0, server.length -1)
             }
-            PropertiesComponent.getInstance().setValue("windy.server", server)
+            PropertiesComponent.getInstance().setValue(Constants.WINDY_SERVER_KEY, server)
             dialog.dispose()
         }
 

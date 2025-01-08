@@ -30,7 +30,7 @@ class WindyApplicationService() {
     }
 
     fun load(){
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         if (server.isNullOrEmpty()){
             return
         }
@@ -79,7 +79,7 @@ class WindyApplicationService() {
     }
 
     fun requestDemandStatus() {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/demand/statuses"
         val responseModel = get(urlString)
         val gson = Gson()
@@ -89,7 +89,7 @@ class WindyApplicationService() {
     }
 
     fun requestWorkStatus() {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/work/task/statuses"
         val responseModel = get(urlString)
         val gson = Gson()
@@ -100,7 +100,7 @@ class WindyApplicationService() {
 
 
     fun updateDemandStatus(demandId: String, status: Int): Boolean {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/demand"
         val gson = Gson()
         val responseModel = put(urlString, gson.toJson(DemandStatus(demandId, status)))
@@ -108,7 +108,7 @@ class WindyApplicationService() {
     }
 
     fun updateBugStatus(bugId: String, status: Int): Boolean {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/bug"
         val gson = Gson()
         val responseModel = put(urlString, gson.toJson(BugStatus(bugId, status)))
@@ -116,14 +116,14 @@ class WindyApplicationService() {
     }
 
     fun updateWorkStatus(workId: String, status: Int): Boolean {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/work/task"
         val gson = Gson()
         val responseModel = put(urlString, gson.toJson(WorkStatus(workId, status)))
         return responseModel!!.data as Boolean
     }
     fun requestBugStatus() {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/bug/statuses"
         val responseModel = get(urlString)
         val gson = Gson()
@@ -133,7 +133,7 @@ class WindyApplicationService() {
     }
 
     fun userLogin(loginParam: LoginParam): LoginResult? {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val api = "$server/v1/devops/user/login"
         val gson = Gson()
         val requestBody = gson.toJson(loginParam)
@@ -146,7 +146,7 @@ class WindyApplicationService() {
     }
 
     fun createWork(work: WorkTask): Boolean {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/work/tasks"
         val gson = Gson()
         val requestBody = gson.toJson(work)
@@ -160,7 +160,7 @@ class WindyApplicationService() {
     }
 
     private fun requestDemandList(): PageModel<DemandDto>? {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/user/demands?size=100"
         val responseModel = get(urlString)
         val gson = Gson()
@@ -170,7 +170,7 @@ class WindyApplicationService() {
     }
 
     private fun requestBugList(): PageModel<BugDto>? {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/user/bugs?size=100"
         val responseModel = get(urlString)
         val gson = Gson()
@@ -180,7 +180,7 @@ class WindyApplicationService() {
     }
 
     private fun requestWorkList(): PageModel<WorkTaskDto>? {
-        val server = PropertiesComponent.getInstance().getValue("windy.server")
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
         val urlString = "$server/v1/devops/work/tasks?size=100"
         val responseModel = get(urlString)
         val gson = Gson()
