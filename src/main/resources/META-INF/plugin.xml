@@ -3,6 +3,18 @@
     <id>com.zj.gyl.windyplugin</id>
     <name>windy</name>
     <vendor>guyuelan</vendor>
+    <description><![CDATA[
+    windy-plugin是一个便捷开发辅助工具，开发者可在idea中沉浸式code，在不离开IDE的情况下，查看与修改需求、缺陷、工作项，获取git提交信息，创建工作项等。
+    包含如下功能:
+    <ul>
+      <li>查看需求、缺陷、工作项</li>
+      <li>修改需求、缺陷、工作项状态</li>
+      <li>获取git提交信息</li>
+      <li>创建工作项</li>
+    </ul>
+    更多信息请查看github
+    <a href="https://github.com/zhijianfree/windy-plugin">windy-plugin</a>.
+    ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
 

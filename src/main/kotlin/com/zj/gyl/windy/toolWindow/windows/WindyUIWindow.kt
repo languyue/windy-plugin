@@ -453,8 +453,9 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         windyService.asyncBugData(object : DataLoadListener {
             override fun load() {
                 bugNode.removeAllChildren()
-                bugNode.userObject = "缺陷 (${windyService.bugPage!!.total})"
-                for (item in windyService.bugPage!!.getList()) {
+                val bugPage = windyService.bugPage ?: return
+                bugNode.userObject = "缺陷 (${bugPage!!.total})"
+                for (item in bugPage!!.getList()) {
                     val statusName = exchangeStatusName(windyService.bugStatusList, item.status)
                     bugNode.add(CustomNode(statusName + item.bugName, item.bugId))
                     dataMap.put(item.bugId, item)
