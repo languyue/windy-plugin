@@ -302,31 +302,30 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                                 if (parentName.contains("任务")) {
                                     statusList = windyService.workStatusList
                                 }
+
                                 statusList.forEach {
                                     val menuItem = JMenuItem(it.statusName)
                                     menuItem.addActionListener {
                                         val itemName = (it.source as JMenuItem).text
                                         selectedNode?.let {
-                                            val type = exchangeStatusValue(windyService.bugStatusList, itemName)
-                                            if (Objects.nonNull(type)) {
-                                                val customNode = it as? CustomNode
-                                                println(customNode!!.userObject.toString() + "-当前选中的节点: ${customNode?.relatedId} " + "状态类型: " + type)
-                                                if (parentName.contains("需求")) {
-                                                    val result = windyService.updateDemandStatus( customNode?.relatedId.toString(), type!! )
-                                                    println("update demand status result " + result)
-                                                }
-                                                if (parentName.contains("缺陷")) {
-                                                    val result = windyService.updateBugStatus(customNode?.relatedId
-                                                        .toString(), type!!)
-                                                    println("update bug status result " + result)
-                                                }
-                                                if (parentName.contains("任务")) {
-                                                    val result = windyService.updateWorkStatus(customNode?.relatedId
-                                                        .toString(), type!!)
-                                                    println("update work status result " + result)
-                                                }
-
+                                            val customNode = it as? CustomNode
+                                            println(customNode!!.userObject.toString() + "-当前选中的节点: ${customNode?.relatedId} " + "父节点名称： ${parentName}")
+                                            if (parentName.contains("需求")) {
+                                                val status = exchangeStatusValue(windyService.demandStatusList, itemName)
+                                                val result = windyService.updateDemandStatus( customNode?.relatedId.toString(), status!! )
+                                                println("update demand status=$status result=$result")
                                             }
+                                            if (parentName.contains("缺陷")) {
+                                                val status = exchangeStatusValue(windyService.bugStatusList, itemName)
+                                                val result = windyService.updateBugStatus(customNode?.relatedId.toString(), status!!)
+                                                println("update bug status=$status result=$result")
+                                            }
+                                            if (parentName.contains("任务")) {
+                                                val status = exchangeStatusValue(windyService.workStatusList, itemName)
+                                                val result = windyService.updateWorkStatus(customNode?.relatedId.toString(), status!!)
+                                                println("update work status=$status result=$result")
+                                            }
+                                            windyService.load()
                                         }
                                     }
                                     statusMenu.add(menuItem)
@@ -343,8 +342,8 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         })
     }
 
-    private fun exchangeStatusValue(demandStatusList: List<StatusType>, menuName: String): Int? {
-        demandStatusList.forEach {
+    private fun exchangeStatusValue(statusList: List<StatusType>, menuName: String): Int? {
+        statusList.forEach {
             if (it.statusName == menuName) {
                 return it.value
             }
@@ -352,8 +351,8 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         return null
     }
 
-    private fun exchangeStatusName(demandStatusList: List<StatusType>, value: Int): String? {
-        demandStatusList.forEach {
+    private fun exchangeStatusName(statusList: List<StatusType>, value: Int): String? {
+        statusList.forEach {
             if (it.value == value) {
                 return "[" + it.statusName + "] "
             }
@@ -375,22 +374,6 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                 }
             }
         }
-        val menuGit = JMenuItem("git提交")
-        menuGit.addActionListener {
-            selectedNode?.let {
-                val customNode = it as? CustomNode
-                println("当前选中的节点: ${customNode?.relatedId}")
-                parentNode?.let {
-                    val parentName = it.userObject.toString()
-                    val type = exchangeType(parentName)
-                    val string = "\r\nwindy:${type}:${customNode!!.relatedId}"
-                    copyToClipboard(string)
-                    val tip = parentName + "[${customNode.relatedId}] git提交信息已复制"
-                    showNotification(customNode.userObject.toString(), tip)
-                }
-            }
-        }
-        menu.add(menuGit)
         menu.add(menuItem)
     }
 

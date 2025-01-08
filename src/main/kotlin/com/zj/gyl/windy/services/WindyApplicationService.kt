@@ -109,17 +109,17 @@ class WindyApplicationService() {
 
     fun updateBugStatus(bugId: String, status: Int): Boolean {
         val server = PropertiesComponent.getInstance().getValue("windy.server")
-        val urlString = "$server/v1/devops/demand"
+        val urlString = "$server/v1/devops/bug"
         val gson = Gson()
         val responseModel = put(urlString, gson.toJson(BugStatus(bugId, status)))
         return responseModel!!.data as Boolean
     }
 
-    fun updateWorkStatus(bugId: String, status: Int): Boolean {
+    fun updateWorkStatus(workId: String, status: Int): Boolean {
         val server = PropertiesComponent.getInstance().getValue("windy.server")
         val urlString = "$server/v1/devops/work/task"
         val gson = Gson()
-        val responseModel = put(urlString, gson.toJson(WorkStatus(bugId, status)))
+        val responseModel = put(urlString, gson.toJson(WorkStatus(workId, status)))
         return responseModel!!.data as Boolean
     }
     fun requestBugStatus() {
