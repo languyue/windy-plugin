@@ -38,7 +38,7 @@ class WindyToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val propertiesComponent = PropertiesComponent.getInstance()
         val token = propertiesComponent.getValue(Constants.WINDY_TOKEN_KEY)
-        val window: JPanel = if (token != null && validateTokenWithServer(token)) {
+        val window: JPanel = if (token == null || validateTokenWithServer(token)) {
             LoginUIWindow(toolWindow).getContent()
         } else {
             WindyUIWindow(toolWindow).getContent()
@@ -63,9 +63,8 @@ class WindyToolWindowFactory : ToolWindowFactory {
     }
 
     private fun validateTokenWithServer(token: String): Boolean {
-        return "" != token
+        return "" == token
     }
-
 
     override fun shouldBeAvailable(project: Project) = true
 }

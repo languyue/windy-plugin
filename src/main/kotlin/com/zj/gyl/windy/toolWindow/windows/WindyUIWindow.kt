@@ -39,17 +39,21 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
 
         //创建树节点
         val root = DefaultMutableTreeNode("Windy")
+        val workPlat = DefaultMutableTreeNode("个人工作台")
         val demandNode = DefaultMutableTreeNode("需求")
         val bugNode = DefaultMutableTreeNode("缺陷")
         val workNode = DefaultMutableTreeNode("任务")
-        root.add(demandNode)
-        root.add(bugNode)
-        root.add(workNode)
+        val pipeline = DefaultMutableTreeNode("流水线")
+        workPlat.add(demandNode)
+        workPlat.add(bugNode)
+        workPlat.add(workNode)
+        root.add(workPlat)
+        root.add(pipeline)
 
         val tree = JTree(root)
         tree.isOpaque = false
         tree.background = Color(0, 0, 0, 0)
-        bindSubTreeNode(tree, demandNode, bugNode, workNode)
+        bindSubTreeNode(tree, demandNode, bugNode, workNode, pipeline)
         tree.cellRenderer = CustomTreeCellRenderer()
 
         //绑定右侧菜单
@@ -63,11 +67,11 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         val (addWorkBtn, btnRefresh) = addBottomButtons(toolWindow)
         addWorkBtn.addActionListener {
             //新增创建工作项的表单
-            createWorkFormUI(tree, demandNode, bugNode, workNode)
+            createWorkFormUI(tree, demandNode, bugNode, workNode, pipeline)
         }
         btnRefresh.addActionListener {
             //点击刷新按钮，重新绑定下树得到子节点
-            bindSubTreeNode(tree, demandNode, bugNode, workNode)
+            bindSubTreeNode(tree, demandNode, bugNode, workNode, pipeline)
 
         }
     }
@@ -101,7 +105,7 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                     component.toolTipText = originalText
                     val parentNode = value.parent as? DefaultMutableTreeNode
                     val parentName = ((parentNode?.userObject as? String) ?: "任务").split(" ")[0]
-                    val icon = parentIconMap[parentName] ?: parentIconMap["任务"]
+                    val icon = parentIconMap[parentName]
                     component.icon = icon
                     if (parentIconMap.keys.contains(value.userObject as? String)) {
                         component.icon = openIcon
@@ -159,7 +163,8 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         tree: JTree,
         demandNode: DefaultMutableTreeNode,
         bugNode: DefaultMutableTreeNode,
-        workNode: DefaultMutableTreeNode
+        workNode: DefaultMutableTreeNode,
+        pipeline: DefaultMutableTreeNode
     ) {
         val ideFrame = WindowManager.getInstance().getIdeFrame(project)
         val frame = ideFrame!!.component as? JFrame
@@ -256,7 +261,7 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                 if (result) {
                     showNotification("提示", "添加任务成功!")
                     dialog.dispose()
-                    bindSubTreeNode(tree, demandNode, bugNode, workNode)
+                    bindSubTreeNode(tree, demandNode, bugNode, workNode, pipeline)
                 } else {
                     showNotification("提示", "创建工作项任务失败", NotificationType.ERROR)
                 }
@@ -273,17 +278,60 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
     }
 
     private fun bindRightMenu(tree: JTree) {
+        val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
+        windyService.load()
+
         val menu = JPopupMenu()
         tree.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent?) {
                 super.mouseClicked(e);
-                var x = e!!.x;
-                var y = e.y;
+                var x = e!!.x
+                var y = e.y
+                if (e.clickCount == 2) {
+                    println("点击两次")
+                    var location = tree.getPathForLocation(e!!.x, e.y)
+                    selectedNode = location?.lastPathComponent as? DefaultMutableTreeNode
+                    parentNode = selectedNode?.parent?.parent as? DefaultMutableTreeNode
+                    if (selectedNode?.isLeaf == true && isPipelineRightMenu(parentNode?.userObject.toString())) {
+                        println("开始点击ddddd")
+                        selectedNode?.let {
+                            val customNode = it as? CustomNode
+                            customNode?.relatedId?.let { it1 ->
+                                windyService.asyncPipelineData(it1, object : DataLoadListener {
+                                    override fun load() {
+                                        windyService.pipelineList!!.forEach{
+//                                            val menuItem = JMenuItem(it.statusName)
+//                                            menuItem.addActionListener{
+//
+//                                            }
+                                            selectedNode!!.add(CustomNode(it.pipelineName, it.pipelineId))
+                                        }
+
+
+//                                        val startMenu = JMenuItem("开始流水线")
+//                                        val stopMenu = JMenuItem("停止流水线")
+//                                        menu.add(startMenu)
+//                                        menu.add(stopMenu)
+//                                        tree.setSelectionPath(location)
+//                                        menu.show(tree, x, y)
+                                    }
+
+                                    override fun expire() {
+                                        TODO("Not yet implemented")
+                                    }
+                                })
+                            }
+                        }
+
+
+                    }
+                }
+
                 if (e.getButton() == MouseEvent.BUTTON3) {
                     var location = tree.getPathForLocation(e!!.x, e.y)
                     selectedNode = location?.lastPathComponent as? DefaultMutableTreeNode
                     parentNode = selectedNode?.parent as? DefaultMutableTreeNode
-                    if (selectedNode?.isLeaf == true) {
+                    if (selectedNode?.isLeaf == true && isSpaceRightMenu(parentNode?.userObject.toString())) {
                         menu.removeAll()
                         addItem(menu, tree)
                         val changeMenu = JMenuItem("切换状态")
@@ -341,6 +389,11 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
             }
         })
     }
+
+    private fun isSpaceRightMenu(text: String) = text.contains("需求") ||text.contains("缺陷")
+            || text.contains("任务")
+
+    private fun isPipelineRightMenu(text: String) = text.contains("服务")
 
     private fun exchangeStatusValue(statusList: List<StatusType>, menuName: String): Int? {
         statusList.forEach {
@@ -412,10 +465,29 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         tree: JTree,
         demandNode: DefaultMutableTreeNode,
         bugNode: DefaultMutableTreeNode,
-        workNode: DefaultMutableTreeNode
+        workNode: DefaultMutableTreeNode,
+        service: DefaultMutableTreeNode
     ) {
         val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
         windyService.load()
+
+        windyService.asyncServiceData(object : DataLoadListener {
+            override fun load() {
+                service.removeAllChildren()
+                service.userObject = "服务 (${windyService.serviceList?.size})"
+                for (item in windyService.serviceList!!) {
+                    service.add(CustomNode(item.serviceName, item.serviceId))
+                    dataMap.put(item.serviceId, item)
+                    val model = tree.model as DefaultTreeModel
+                    model.reload()
+                }
+            }
+
+            override fun expire() {
+                switchToBusinessPage()
+            }
+        })
+
         windyService.asyncDemandData(object : DataLoadListener {
             override fun load() {
                 demandNode.removeAllChildren()
@@ -446,7 +518,6 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                     model.reload()
                 }
             }
-
             override fun expire() {
                 switchToBusinessPage()
             }

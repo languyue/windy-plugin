@@ -13,6 +13,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.concurrent.thread
 
 
@@ -20,6 +21,8 @@ import kotlin.concurrent.thread
 class WindyApplicationService() {
     var demandPage: PageModel<DemandDto>? = PageModel(0, ArrayList())
     var bugPage: PageModel<BugDto>? = PageModel(0, ArrayList())
+    var serviceList: ArrayList<ServiceDto>? =  ArrayList()
+    var pipelineList: ArrayList<PipelineDto>? = ArrayList()
     var workPage: PageModel<WorkTaskDto>? = PageModel(0, ArrayList())
     var bugStatusList: List<StatusType> =  ArrayList()
     var demandStatusList: List<StatusType> =  ArrayList()
@@ -58,6 +61,29 @@ class WindyApplicationService() {
         thread {
             try {
                 bugPage = requestBugList()
+                thisLogger().warn("加载完成数据了" + bugPage!!.total)
+                listener.load()
+            }catch (e : AuthException){
+                listener.expire()
+            }
+        }
+    }
+
+    fun asyncServiceData(listener: DataLoadListener) {
+        thread {
+            try {
+                serviceList = requestServiceList()
+                thisLogger().warn("加载完成数据了" + bugPage!!.total)
+                listener.load()
+            }catch (e : AuthException){
+                listener.expire()
+            }
+        }
+    }
+    fun asyncPipelineData(serviceId: String, listener: DataLoadListener) {
+        thread {
+            try {
+                pipelineList = requestPipelineList(serviceId)
                 thisLogger().warn("加载完成数据了" + bugPage!!.total)
                 listener.load()
             }catch (e : AuthException){
@@ -177,6 +203,26 @@ class WindyApplicationService() {
         val dataString = gson.toJson(responseModel!!.data)
         val type = object : TypeToken<PageModel<BugDto?>?>() {}.type
         return gson.fromJson<Any>(dataString, type) as PageModel<BugDto>?
+    }
+
+    private fun requestPipelineList(serviceId: String): ArrayList<PipelineDto>? {
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
+        val urlString = "$server/v1/devops/pipeline/$serviceId/list"
+        val responseModel = get(urlString)
+        val gson = Gson()
+        val dataString = gson.toJson(responseModel!!.data)
+        val type = object : TypeToken<ArrayList<PipelineDto?>?>() {}.type
+        return gson.fromJson<Any>(dataString, type) as ArrayList<PipelineDto>?
+    }
+
+    private fun requestServiceList(): ArrayList<ServiceDto>? {
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
+        val urlString = "$server/v1/devops/services"
+        val responseModel = get(urlString)
+        val gson = Gson()
+        val dataString = gson.toJson(responseModel!!.data)
+        val itemListType = object : TypeToken<ArrayList<ServiceDto>>() {}.type
+        return gson.fromJson<Any>(dataString, itemListType) as ArrayList<ServiceDto>?
     }
 
     private fun requestWorkList(): PageModel<WorkTaskDto>? {
