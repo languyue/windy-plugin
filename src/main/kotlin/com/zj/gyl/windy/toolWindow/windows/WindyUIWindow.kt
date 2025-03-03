@@ -8,7 +8,9 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.WindowManager
+import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.components.JBPanel
+import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import com.zj.gyl.windy.services.DataLoadListener
@@ -33,6 +35,7 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
     private val project: Project = toolWindow.project
     private var selectedNode: DefaultMutableTreeNode? = null
     private var parentNode: DefaultMutableTreeNode? = null
+    private var globalTree: JTree? = null
     private var dataMap: HashMap<String, Any> = HashMap()
     fun getContent() = JBPanel<JBPanel<*>>().apply {
         layout = BorderLayout()
@@ -51,6 +54,7 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         root.add(pipeline)
 
         val tree = JTree(root)
+        globalTree = tree
         tree.isOpaque = false
         tree.background = Color(0, 0, 0, 0)
         bindSubTreeNode(tree, demandNode, bugNode, workNode, pipeline)
@@ -100,19 +104,26 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         ): Component {
             val component = super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus)
             if (leaf) {
+                component.colorModel
                 if (component is JLabel && value is DefaultMutableTreeNode) {
-                    val originalText = value.userObject.toString()
-                    component.toolTipText = originalText
-                    val parentNode = value.parent as? DefaultMutableTreeNode
-                    val parentName = ((parentNode?.userObject as? String) ?: "任务").split(" ")[0]
-                    val icon = parentIconMap[parentName]
-                    component.icon = icon
-                    if (parentIconMap.keys.contains(value.userObject as? String)) {
-                        component.icon = openIcon
+                    value?.let {
+                        val parentNode = value.parent as? DefaultMutableTreeNode
+                        val parentName = ((parentNode?.userObject as? String) ?: "任务").split(" ")[0]
+                        val icon = parentIconMap[parentName]
+                        component.icon = icon
+                        if (parentIconMap.keys.contains(value.userObject as? String)) {
+                            component.icon = openIcon
+                        }
+                        if (it is CustomNode && it.loading){
+                            component.text = "[运行中] ${it.name}"
+                            component.toolTipText = "[${it.name}]流水线正在运行中..."
+                        }else{
+                            component.toolTipText = "[${it}]流水线未运行"
+                        }
                     }
+
                 }
             }
-
             return component
         }
     }
@@ -281,107 +292,33 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
         windyService.load()
 
-        val menu = JPopupMenu()
         tree.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent?) {
                 super.mouseClicked(e);
                 var x = e!!.x
                 var y = e.y
                 if (e.clickCount == 2) {
-                    println("点击两次")
-                    var location = tree.getPathForLocation(e!!.x, e.y)
-                    selectedNode = location?.lastPathComponent as? DefaultMutableTreeNode
-                    parentNode = selectedNode?.parent?.parent as? DefaultMutableTreeNode
-                    if (selectedNode?.isLeaf == true && isPipelineRightMenu(parentNode?.userObject.toString())) {
-                        println("开始点击ddddd")
-                        selectedNode?.let {
-                            val customNode = it as? CustomNode
-                            customNode?.relatedId?.let { it1 ->
-                                windyService.asyncPipelineData(it1, object : DataLoadListener {
-                                    override fun load() {
-                                        windyService.pipelineList!!.forEach{
-//                                            val menuItem = JMenuItem(it.statusName)
-//                                            menuItem.addActionListener{
-//
-//                                            }
-                                            selectedNode!!.add(CustomNode(it.pipelineName, it.pipelineId))
-                                        }
-
-
-//                                        val startMenu = JMenuItem("开始流水线")
-//                                        val stopMenu = JMenuItem("停止流水线")
-//                                        menu.add(startMenu)
-//                                        menu.add(stopMenu)
-//                                        tree.setSelectionPath(location)
-//                                        menu.show(tree, x, y)
-                                    }
-
-                                    override fun expire() {
-                                        TODO("Not yet implemented")
-                                    }
-                                })
-                            }
-                        }
-
-
-                    }
+                    //双击加载流水线
+                    dbClickLoadPipelines(tree, e, windyService)
                 }
 
                 if (e.getButton() == MouseEvent.BUTTON3) {
+                    val menu = JPopupMenu()
                     var location = tree.getPathForLocation(e!!.x, e.y)
-                    selectedNode = location?.lastPathComponent as? DefaultMutableTreeNode
-                    parentNode = selectedNode?.parent as? DefaultMutableTreeNode
-                    if (selectedNode?.isLeaf == true && isSpaceRightMenu(parentNode?.userObject.toString())) {
+                    var currentNode = location?.lastPathComponent as? DefaultMutableTreeNode
+                    parentNode = currentNode?.parent as? DefaultMutableTreeNode
+                    if (currentNode?.isLeaf == true) {
                         menu.removeAll()
-                        addItem(menu, tree)
-                        val changeMenu = JMenuItem("切换状态")
-                        changeMenu.addActionListener {
-                            parentNode?.let {
-                                val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
-                                val parentName = it.userObject.toString()
-                                val statusMenu = JPopupMenu()
-                                var statusList: List<StatusType> = ArrayList()
-                                if (parentName.contains("需求")) {
-                                    statusList = windyService.demandStatusList
-                                }
-                                if (parentName.contains("缺陷")) {
-                                    statusList = windyService.bugStatusList
-                                }
-                                if (parentName.contains("任务")) {
-                                    statusList = windyService.workStatusList
-                                }
-
-                                statusList.forEach {
-                                    val menuItem = JMenuItem(it.statusName)
-                                    menuItem.addActionListener {
-                                        val itemName = (it.source as JMenuItem).text
-                                        selectedNode?.let {
-                                            val customNode = it as? CustomNode
-                                            println(customNode!!.userObject.toString() + "-当前选中的节点: ${customNode?.relatedId} " + "父节点名称： ${parentName}")
-                                            if (parentName.contains("需求")) {
-                                                val status = exchangeStatusValue(windyService.demandStatusList, itemName)
-                                                val result = windyService.updateDemandStatus( customNode?.relatedId.toString(), status!! )
-                                                println("update demand status=$status result=$result")
-                                            }
-                                            if (parentName.contains("缺陷")) {
-                                                val status = exchangeStatusValue(windyService.bugStatusList, itemName)
-                                                val result = windyService.updateBugStatus(customNode?.relatedId.toString(), status!!)
-                                                println("update bug status=$status result=$result")
-                                            }
-                                            if (parentName.contains("任务")) {
-                                                val status = exchangeStatusValue(windyService.workStatusList, itemName)
-                                                val result = windyService.updateWorkStatus(customNode?.relatedId.toString(), status!!)
-                                                println("update work status=$status result=$result")
-                                            }
-                                            windyService.load()
-                                        }
-                                    }
-                                    statusMenu.add(menuItem)
-                                }
-                                statusMenu.show(tree, x, y)
-                            }
+                        //右键切换需求、缺陷、工作项状态
+                        if(isSpaceRightMenu(parentNode?.userObject.toString())){
+                            exchangeSpaceStatus(tree, x, y, menu)
                         }
-                        menu.add(changeMenu)
+
+                        //右键切换执行和查询流水线状态
+                        var pipelineNode = currentNode.parent?.parent as? DefaultMutableTreeNode
+                        if(isPipelineRightMenu(pipelineNode?.userObject.toString())){
+                            exchangePipelineStatus(currentNode, menu)
+                        }
                         tree.setSelectionPath(location);
                         menu.show(tree, x, y);
                     }
@@ -390,10 +327,126 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         })
     }
 
+    private fun exchangePipelineStatus(currentNode: DefaultMutableTreeNode, menu: JPopupMenu) {
+        val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
+        val runMenu = JMenuItem("运行流水线")
+        runMenu.addActionListener {
+            currentNode.let {
+                var pipeline = it as CustomNode
+                var result = windyService.runPipeline(pipeline.relatedId)
+                if (result) {
+                    showNotification("流水线: ${it}", "运行流水线成功!")
+                } else {
+                    showError("流水线: ${it}", "运行流水线失败!")
+                }
+            }
+        }
+        val refreshMenu = JMenuItem("刷新状态")
+        refreshMenu.addActionListener {
+            currentNode.let {
+                var pipeline = it as CustomNode
+                var pipelineStatus = windyService.getPipelineStatus(pipeline.relatedId)
+                it.loading = pipelineStatus.status == 4
+                if (Objects.nonNull(pipelineStatus)) {
+                    showNotification("流水线: ${it}", "状态刷新成功!")
+                } else {
+                    showError("流水线: ${it}", "状态刷新失败!")
+                }
+            }
+        }
+        menu.add(runMenu)
+        menu.add(refreshMenu)
+    }
+
+    private fun exchangeSpaceStatus(tree: JTree, x: Int, y: Int, menu: JPopupMenu) {
+        val changeMenu = JMenuItem("切换状态")
+        changeMenu.addActionListener {
+            parentNode?.let {
+                val windyService = ApplicationManager.getApplication().getService(WindyApplicationService::class.java)
+                val parentName = it.userObject.toString()
+                val statusMenu = JPopupMenu()
+                var statusList: List<StatusType> = ArrayList()
+                if (parentName.contains("需求")) {
+                    statusList = windyService.demandStatusList
+                }
+                if (parentName.contains("缺陷")) {
+                    statusList = windyService.bugStatusList
+                }
+                if (parentName.contains("任务")) {
+                    statusList = windyService.workStatusList
+                }
+
+                statusList.forEach {
+                    val menuItem = JMenuItem(it.statusName)
+                    menuItem.addActionListener {
+                        val itemName = (it.source as JMenuItem).text
+                        selectedNode?.let {
+                            val customNode = it as? CustomNode
+                            println(customNode!!.userObject.toString() + "-当前选中的节点: ${customNode?.relatedId} " + "父节点名称： ${parentName}")
+                            if (parentName.contains("需求")) {
+                                val status = exchangeStatusValue(windyService.demandStatusList, itemName)
+                                val result = windyService.updateDemandStatus(customNode?.relatedId.toString(), status!!)
+                                println("update demand status=$status result=$result")
+                            }
+                            if (parentName.contains("缺陷")) {
+                                val status = exchangeStatusValue(windyService.bugStatusList, itemName)
+                                val result = windyService.updateBugStatus(customNode?.relatedId.toString(), status!!)
+                                println("update bug status=$status result=$result")
+                            }
+                            if (parentName.contains("任务")) {
+                                val status = exchangeStatusValue(windyService.workStatusList, itemName)
+                                val result = windyService.updateWorkStatus(customNode?.relatedId.toString(), status!!)
+                                println("update work status=$status result=$result")
+                            }
+                            windyService.load()
+                        }
+                    }
+                    statusMenu.add(menuItem)
+                }
+                statusMenu.show(tree, x, y)
+            }
+        }
+        menu.add(changeMenu)
+    }
+
+    private fun dbClickLoadPipelines(
+        tree: JTree,
+        e: MouseEvent,
+        windyService: WindyApplicationService
+    ) {
+        var location = tree.getPathForLocation(e!!.x, e.y)
+        var currentNode = location?.lastPathComponent as? DefaultMutableTreeNode
+        var parentNode = currentNode?.parent as? DefaultMutableTreeNode
+        if (currentNode?.isLeaf == true && isPipelineRightMenu(parentNode?.userObject.toString())) {
+            currentNode.let {
+                val customNode = it as? CustomNode
+                customNode?.relatedId?.let { it1 ->
+                    windyService.asyncPipelineData(it1, object : DataLoadListener {
+                        override fun load() {
+                            windyService.pipelineList!!.forEach {
+                                currentNode.add(
+                                    CustomNode(
+                                        it.pipelineName, it.pipelineId, it.status
+                                                == 4
+                                    )
+                                )
+                            }
+
+                        }
+
+                        override fun expire() {
+                            TODO("Not yet implemented")
+                        }
+                    })
+                }
+            }
+        }
+    }
+
     private fun isSpaceRightMenu(text: String) = text.contains("需求") ||text.contains("缺陷")
             || text.contains("任务")
 
-    private fun isPipelineRightMenu(text: String) = text.contains("服务")
+    private fun isPipelineRightMenu(text: String) = text.contains("流水线")
 
     private fun exchangeStatusValue(statusList: List<StatusType>, menuName: String): Int? {
         statusList.forEach {
@@ -413,41 +466,12 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         return ""
     }
 
-    private fun addItem(menu: JPopupMenu, tree: JTree) {
-        val menuItem = JMenuItem("复制Id")
-        menuItem.addActionListener {
-            selectedNode?.let {
-                val customNode = it as? CustomNode
-                println("当前选中的节点: ${customNode?.relatedId}")
-                parentNode?.let {
-                    copyToClipboard(customNode!!.relatedId)
-                    val parentName = it.userObject.toString()
-                    val tip = parentName + "Id:[${customNode.relatedId}] 已复制到粘贴板"
-                    showNotification(customNode.userObject.toString(), tip)
-                }
-            }
-        }
-        menu.add(menuItem)
-    }
-
-    private fun exchangeType(typeName: String): String {
-        if (Objects.equals(typeName, "需求")) {
-            return "demand"
-        }
-        if (Objects.equals(typeName, "缺陷")) {
-            return "bug"
-        }
-        return "work"
-    }
-
-    private fun copyToClipboard(text: String) {
-        val stringSelection = StringSelection(text)
-        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-        clipboard.setContents(stringSelection, null)
-    }
-
     fun showNotification(title: String, tip: String) {
         showNotification(title, tip, NotificationType.INFORMATION)
+    }
+
+    fun showError(title: String, tip: String) {
+        showNotification(title, tip, NotificationType.ERROR)
     }
 
     fun showNotification(title: String, tip: String, notifyType: NotificationType) {
@@ -474,7 +498,7 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         windyService.asyncServiceData(object : DataLoadListener {
             override fun load() {
                 service.removeAllChildren()
-                service.userObject = "服务 (${windyService.serviceList?.size})"
+                service.userObject = "流水线 (${windyService.serviceList?.size})"
                 for (item in windyService.serviceList!!) {
                     service.add(CustomNode(item.serviceName, item.serviceId))
                     dataMap.put(item.serviceId, item)

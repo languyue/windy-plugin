@@ -16,6 +16,9 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.concurrent.thread
 
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.ApplicationManager
 
 @Service(Service.Level.APP)
 class WindyApplicationService() {
@@ -83,7 +86,8 @@ class WindyApplicationService() {
     fun asyncPipelineData(serviceId: String, listener: DataLoadListener) {
         thread {
             try {
-                pipelineList = requestPipelineList(serviceId)
+                var list = requestPipelineList(serviceId)
+                pipelineList = list?.filter { it.pipelineType == 3} as ArrayList<PipelineDto>?
                 thisLogger().warn("加载完成数据了" + bugPage!!.total)
                 listener.load()
             }catch (e : AuthException){
@@ -207,12 +211,29 @@ class WindyApplicationService() {
 
     private fun requestPipelineList(serviceId: String): ArrayList<PipelineDto>? {
         val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
-        val urlString = "$server/v1/devops/pipeline/$serviceId/list"
+        val urlString = "$server/v1/devops/pipeline/services/$serviceId/status"
         val responseModel = get(urlString)
         val gson = Gson()
         val dataString = gson.toJson(responseModel!!.data)
         val type = object : TypeToken<ArrayList<PipelineDto?>?>() {}.type
         return gson.fromJson<Any>(dataString, type) as ArrayList<PipelineDto>?
+    }
+
+    fun runPipeline(pipelineId: String): Boolean {
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
+        val urlString = "$server/v1/devops/pipeline/${pipelineId}"
+        val responseModel = post(urlString, "")
+        return Objects.nonNull(responseModel) && Objects.nonNull(responseModel?.data)
+    }
+
+    fun getPipelineStatus(pipelineId: String): PipelineDto {
+        val server = PropertiesComponent.getInstance().getValue(Constants.WINDY_SERVER_KEY)
+        val urlString = "$server/v1/devops/pipeline/${pipelineId}/status"
+        val responseModel = get(urlString)
+        val gson = Gson()
+        val dataString = gson.toJson(responseModel!!.data)
+        val itemListType = object : TypeToken<PipelineDto>() {}.type
+        return gson.fromJson<Any>(dataString, itemListType) as PipelineDto
     }
 
     private fun requestServiceList(): ArrayList<ServiceDto>? {
@@ -246,26 +267,11 @@ class WindyApplicationService() {
             val token = PropertiesComponent.getInstance().getValue(Constants.WINDY_TOKEN_KEY)
             connection.setRequestProperty("Authorization", "Bearer " + token)
             val responseCode = connection!!.responseCode
-            if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
-                PropertiesComponent.getInstance().setValue(Constants.WINDY_TOKEN_KEY, "")
-                throw AuthException("user token is expire, need login")
-            }
-
-            val result = java.lang.StringBuilder()
-            BufferedReader(InputStreamReader(connection!!.inputStream)).use { reader ->
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    result.append(line)
-                }
-            }
-            val responseJson = result.toString()
-            val responseModel = gson.fromJson(responseJson, ResponseModel::class.java)
-            return responseModel
+            return handleHttpCode(responseCode, connection, gson)
         } catch (e: AuthException) {
             throw e
         }  catch (e: java.lang.Exception) {
             e.printStackTrace()
-            System.err.println("get bug list error")
         } finally {
             connection?.disconnect()
         }
@@ -288,18 +294,7 @@ class WindyApplicationService() {
                 os.flush()
             }
             val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
-                PropertiesComponent.getInstance().setValue(Constants.WINDY_TOKEN_KEY, "")
-                throw AuthException("user token is expire, need login")
-            }
-            BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
-                val result = StringBuilder()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    result.append(line)
-                }
-                return gson.fromJson(result.toString(), ResponseModel::class.java)
-            }
+            return handleHttpCode(responseCode, connection, gson)
         } catch (e: AuthException) {
             throw e
         } catch (e: java.lang.Exception) {
@@ -327,10 +322,28 @@ class WindyApplicationService() {
                 os.flush()
             }
             val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
-                PropertiesComponent.getInstance().setValue(Constants.WINDY_TOKEN_KEY, "")
-                throw AuthException("user token is expire, need login")
-            }
+            return handleHttpCode(responseCode, connection, gson)
+        } catch (e: AuthException) {
+            throw e
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+        } finally {
+            connection?.disconnect()
+        }
+        return null
+    }
+
+    private fun handleHttpCode(
+        responseCode: Int,
+        connection: HttpURLConnection,
+        gson: Gson
+    ): ResponseModel? {
+        if (responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
+            PropertiesComponent.getInstance().setValue(Constants.WINDY_TOKEN_KEY, "")
+            throw AuthException("user token is expire, need login")
+        }
+
+        if (responseCode in 200..299) {
             BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
                 val result = StringBuilder()
                 var line: String?
@@ -339,17 +352,27 @@ class WindyApplicationService() {
                 }
                 return gson.fromJson(result.toString(), ResponseModel::class.java)
             }
-        } catch (e: AuthException) {
-            throw e
-        } catch (e: java.lang.Exception) {
-            e.printStackTrace()
-            System.err.println("create work task error")
-        } finally {
-            connection?.disconnect()
+        }
+
+
+        // 非 2xx，尝试读取 errorStream
+        BufferedReader(InputStreamReader(connection.errorStream)).use { reader ->
+            val errorResult = reader.readText()
+            val errorResponse = gson.fromJson(errorResult, ResponseModel::class.java)
+            // 500 错误时弹出 IDEA 通知
+            if (responseCode == 500 && errorResponse?.message?.isNotBlank() == true) {
+                showNotification("Windy请求异常", errorResponse.message)
+            }
         }
         return null
     }
 
-
-    fun getRandomNumber() = "windy" + (1..100).random()
+    fun showNotification(title: String, message: String, type: NotificationType = NotificationType.ERROR) {
+        ApplicationManager.getApplication().invokeLater {
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Windy Http Group")
+                .createNotification(title, message, type)
+                .notify(null)
+        }
+    }
 }

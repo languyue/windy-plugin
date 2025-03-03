@@ -18,6 +18,7 @@
         <toolWindow factoryClass="com.zj.gyl.windy.toolWindow.WindyToolWindowFactory" id="Windy"
                     icon="/icons/white-logo.png"/>
         <notificationGroup id="Windy Notification Group" displayType="BALLOON" isLogByDefault="false"/>
+        <notificationGroup id="Windy Http Group" displayType="BALLOON" isLogByDefault="false"/>
     </extensions>
 
     <applicationListeners>
