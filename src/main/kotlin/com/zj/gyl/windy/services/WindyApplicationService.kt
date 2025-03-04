@@ -51,7 +51,6 @@ class WindyApplicationService() {
         thread {
             try {
                 demandPage = requestDemandList()
-                thisLogger().warn("加载完成数据了" + demandPage!!.total)
                 listener.load()
             } catch (e: AuthException) {
                 listener.expire()
@@ -64,7 +63,6 @@ class WindyApplicationService() {
         thread {
             try {
                 bugPage = requestBugList()
-                thisLogger().warn("加载完成数据了" + bugPage!!.total)
                 listener.load()
             }catch (e : AuthException){
                 listener.expire()
@@ -76,7 +74,6 @@ class WindyApplicationService() {
         thread {
             try {
                 serviceList = requestServiceList()
-                thisLogger().warn("加载完成数据了" + bugPage!!.total)
                 listener.load()
             }catch (e : AuthException){
                 listener.expire()
@@ -88,7 +85,6 @@ class WindyApplicationService() {
             try {
                 var list = requestPipelineList(serviceId)
                 pipelineList = list?.filter { it.pipelineType == 3} as ArrayList<PipelineDto>?
-                thisLogger().warn("加载完成数据了" + bugPage!!.total)
                 listener.load()
             }catch (e : AuthException){
                 listener.expire()
@@ -100,7 +96,6 @@ class WindyApplicationService() {
         thread {
             try {
                 workPage = requestWorkList()
-                thisLogger().warn("加载完成数据了" + workPage!!.total)
                 listener.load()
             } catch (e: AuthException) {
                 listener.expire()
