@@ -10,6 +10,7 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -56,15 +57,17 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         val tree = JTree(root)
         globalTree = tree
         tree.isOpaque = false
-        tree.background = Color(0, 0, 0, 0)
+        tree.background = UIUtil.getPanelBackground()
         bindSubTreeNode(tree, demandNode, bugNode, workNode, pipeline)
-        tree.cellRenderer = CustomTreeCellRenderer()
+        var cellRenderer = CustomTreeCellRenderer()
+        cellRenderer.backgroundNonSelectionColor = UIUtil.getPanelBackground()
+        tree.cellRenderer = cellRenderer
 
         //绑定右侧菜单
         bindRightMenu(tree)
         val scrollPane = JScrollPane(tree)
         scrollPane.border = BorderFactory.createEmptyBorder()
-        background = UIUtil.getPanelBackground()
+        scrollPane.background = UIUtil.getPanelBackground()
         add(scrollPane, BorderLayout.CENTER)
 
         //开始添加底部按钮
@@ -104,7 +107,6 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         ): Component {
             val component = super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus)
             if (leaf) {
-                component.colorModel
                 if (component is JLabel && value is DefaultMutableTreeNode) {
                     value?.let {
                         val parentNode = value.parent as? DefaultMutableTreeNode
