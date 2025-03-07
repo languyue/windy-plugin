@@ -93,7 +93,8 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
         private val parentIconMap: Map<String, Icon> = mapOf(
             "缺陷" to resizeIcon(ImageIcon(javaClass.classLoader.getResource("icons/bug.png")), 12, 12),
             "需求" to resizeIcon(ImageIcon(javaClass.classLoader.getResource("icons/demand.png")), 12, 12),
-            "任务" to resizeIcon(ImageIcon(javaClass.classLoader.getResource("icons/task.png")), 12, 12)
+            "任务" to resizeIcon(ImageIcon(javaClass.classLoader.getResource("icons/task.png")), 12, 12),
+            "流水线" to resizeIcon(ImageIcon(javaClass.classLoader.getResource("icons/pipeline.png")), 12, 12)
         )
 
         override fun getTreeCellRendererComponent(
@@ -119,8 +120,6 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                         if (it is CustomNode && it.loading){
                             component.text = "[运行中] ${it.name}"
                             component.toolTipText = "[${it.name}]流水线正在运行中..."
-                        }else{
-                            component.toolTipText = "[${it}]流水线未运行"
                         }
                     }
 
@@ -338,6 +337,8 @@ class WindyUIWindow(private val toolWindow: ToolWindow) {
                 var result = windyService.runPipeline(pipeline.relatedId)
                 if (result) {
                     showNotification("流水线: ${it}", "运行流水线成功!")
+                    var pipelineStatus = windyService.getPipelineStatus(pipeline.relatedId)
+                    it.loading = pipelineStatus.status == 4
                 } else {
                     showError("流水线: ${it}", "运行流水线失败!")
                 }
